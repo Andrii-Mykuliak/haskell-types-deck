@@ -66,7 +66,7 @@ export const Toolbar: React.FC<{
         background: "rgba(20,23,34,0.85)",
         border: `1px solid ${C.line}`,
         boxShadow: "0 6px 24px rgba(0,0,0,0.35)",
-        opacity: hover || tool !== "none" || screen !== "none" ? 1 : 0.35,
+        opacity: hover ? 1 : 0,
         transition: "opacity 200ms ease",
         cursor: "default",
         zIndex: 10,
