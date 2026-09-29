@@ -1,7 +1,11 @@
-import React from "react";
-import { AbsoluteFill, interpolate } from "remotion";
+import React, { useLayoutEffect, useRef } from "react";
+import { AbsoluteFill, Freeze, interpolate } from "remotion";
 import { C, F } from "../deck/theme";
-import { POP, SlideDef, useSteps } from "../deck/steps";
+import { POP, SlideDef, startsOf, StepProvider, stopsOf, useSteps } from "../deck/steps";
+import { s7Slides } from "./s7-inference";
+
+const SUMMARY = s7Slides.find((d) => d.id === "summary")!;
+const SUMMARY_END = stopsOf(SUMMARY.steps)[SUMMARY.steps.length - 1];
 
 /* Final slide: particles swirl in and assemble the Haskell logo, then the thank-you. */
 
@@ -33,7 +37,22 @@ const SCALE = 36; // px per logo unit → 612 × 432
 const LX = 960 - (17 * SCALE) / 2;
 const LY = 150;
 
-type Particle = { tx: number; ty: number; sx: number; sy: number; color: string; r: number; delay: number; spin: number };
+type Particle = { tx: number; ty: number; sx: number; sy: number; bx: number; by: number; color: string; r: number; delay: number; spin: number };
+
+/* The slide opens on the summary's last frame; a dissolve sweeps across it left → right. */
+const SWEEP_FROM = 8;
+const SWEEP_TO = 40;
+const sweepPct = (f: number) => interpolate(f, [SWEEP_FROM, SWEEP_TO], [-10, 110], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+const sweepFrameAt = (x: number) => SWEEP_FROM + (((x / 1920) * 100 + 10) / 120) * (SWEEP_TO - SWEEP_FROM);
+
+// Where the summary's text sits — particles are born there.
+const TEXT_BOXES: [number, number, number, number, number][] = [
+  // x, y, w, h, weight
+  [130, 195, 340, 90, 0.12],
+  [190, 410, 1470, 60, 0.36],
+  [190, 478, 900, 60, 0.24],
+  [96, 828, 1200, 55, 0.28],
+];
 
 const PARTICLES: Particle[] = (() => {
   const out: Particle[] = [];
@@ -46,17 +65,23 @@ const PARTICLES: Particle[] = (() => {
       k++;
       const jx = (rnd(k * 3) - 0.5) * step * 0.6;
       const jy = (rnd(k * 5) - 0.5) * step * 0.6;
+      let pick = rnd(k * 23);
+      const box = TEXT_BOXES.find((b) => (pick -= b[4]) < 0) ?? TEXT_BOXES[1];
+      const sx = box[0] + rnd(k * 29) * box[2];
+      const sy = box[1] + rnd(k * 31) * box[3];
       const ang = rnd(k * 7) * Math.PI * 2;
-      const dist = 900 + rnd(k * 11) * 700;
+      const burst = 60 + rnd(k * 11) * 160;
       out.push({
         tx: LX + (x + jx) * SCALE,
         ty: LY + (y + jy) * SCALE,
-        sx: 960 + Math.cos(ang) * dist,
-        sy: 540 + Math.sin(ang) * dist * 0.7,
+        sx,
+        sy,
+        bx: Math.cos(ang) * burst,
+        by: Math.sin(ang) * burst - 60,
         color: poly.color,
         r: 3.2 + rnd(k * 13) * 2.6,
-        delay: rnd(k * 17) * 34,
-        spin: (rnd(k * 19) - 0.5) * 2.4,
+        delay: sweepFrameAt(sx) + rnd(k * 17) * 4,
+        spin: (rnd(k * 19) - 0.5) * 1.6,
       });
     }
   }
@@ -65,94 +90,136 @@ const PARTICLES: Particle[] = (() => {
 
 const LOGO_CX = LX + 8.5 * SCALE;
 const LOGO_CY = LY + 6 * SCALE;
-const LOCK = 62; // frame the logo is fully assembled
+const LOCK = 92; // frame the logo is fully assembled
+
+
+const LogoSvg: React.FC<{ style: React.CSSProperties }> = ({ style }) => (
+  <svg width={17 * SCALE} height={12 * SCALE} viewBox="0 0 17 12" style={{ position: "absolute", left: LX, top: LY, ...style }}>
+    {LOGO.map((p, i) => (
+      <polygon key={i} points={p.pts.map((q) => q.join(",")).join(" ")} fill={p.color} />
+    ))}
+  </svg>
+);
+
+// Pre-rendered soft dot per colour: drawImage of a sprite is far cheaper than blurring shapes every frame.
+const sprites = new Map<string, HTMLCanvasElement>();
+const sprite = (hex: string) => {
+  let c = sprites.get(hex);
+  if (c) return c;
+  c = document.createElement("canvas");
+  c.width = c.height = 64;
+  const ctx = c.getContext("2d")!;
+  const n = parseInt(hex.slice(1), 16);
+  const rgb = `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
+  const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, `rgba(255,255,255,1)`);
+  g.addColorStop(0.12, `rgba(${rgb},1)`);
+  g.addColorStop(0.3, `rgba(${rgb},0.9)`);
+  g.addColorStop(0.45, `rgba(${rgb},0.25)`);
+  g.addColorStop(1, `rgba(${rgb},0)`);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 64, 64);
+  sprites.set(hex, c);
+  return c;
+};
+
+if (typeof document !== "undefined") [...LOGO.map((p) => p.color), "#ffffff"].forEach(sprite);
+
+const STARS = Array.from({ length: 90 }, (_, i) => ({
+  x: rnd(i * 23) * 1920,
+  y: rnd(i * 29) * 1080,
+  v: 0.2 + rnd(i * 31) * 0.5,
+  r: 1 + rnd(i * 37) * 1.4,
+}));
+
+const FxCanvas: React.FC<{ f: number; dots: number; ring: number; intro: number }> = ({ f, dots, ring, intro }) => {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useLayoutEffect(() => {
+    const ctx = ref.current?.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, 1920, 1080);
+
+    ctx.fillStyle = "#c4b5fd";
+    STARS.forEach((st, i) => {
+      const y = (st.y - f * st.v + 1080) % 1080;
+      ctx.globalAlpha = (0.25 + 0.35 * Math.abs(Math.sin(f / 14 + i))) * intro;
+      ctx.beginPath();
+      ctx.arc(st.x, y, st.r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    if (ring > 0 && ring < 1) {
+      ctx.globalAlpha = 0.6 * (1 - ring);
+      ctx.strokeStyle = "#a994ff";
+      ctx.lineWidth = 4 + 12 * (1 - ring);
+      ctx.beginPath();
+      ctx.arc(LOGO_CX, LOGO_CY, 700 * ring, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    if (dots > 0.01) {
+      for (const p of PARTICLES) {
+        const pr = Math.min(1, Math.max(0, (f - p.delay) / (LOCK - p.delay)));
+        if (f < p.delay) continue;
+        // ease in-out: drift away from the text first, then rush into the logo
+        const e = pr < 0.5 ? 4 * pr * pr * pr : 1 - Math.pow(-2 * pr + 2, 3) / 2;
+        const bulge = Math.sin(Math.PI * Math.min(1, pr * 1.25));
+        // spiral in: rotate the start offset around the target as it closes in
+        const a = (1 - e) * p.spin * Math.PI;
+        const dx = (p.sx - p.tx) * (1 - e);
+        const dy = (p.sy - p.ty) * (1 - e);
+        const x = p.tx + dx * Math.cos(a) - dy * Math.sin(a) + p.bx * bulge;
+        const y = p.ty + dx * Math.sin(a) + dy * Math.cos(a) + p.by * bulge;
+        const size = p.r * (1 + bulge * 0.6) * 5;
+        // born white like the text, tint into the logo colour on the way
+        ctx.globalAlpha = dots * (1 - e);
+        ctx.drawImage(sprite("#ffffff"), x - size / 2, y - size / 2, size, size);
+        ctx.globalAlpha = dots * e;
+        ctx.drawImage(sprite(p.color), x - size / 2, y - size / 2, size, size);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }, [f, dots, ring, intro]);
+  return <canvas ref={ref} width={1920} height={1080} style={{ position: "absolute", inset: 0 }} />;
+};
 
 const Outro: React.FC = () => {
   const { t, s } = useSteps();
   const f = t(0, 0);
 
   // Solid logo fades in as the particles settle, so the edges end up crisp.
-  const solid = interpolate(f, [LOCK - 8, LOCK + 14], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const dots = 1 - interpolate(f, [LOCK + 4, LOCK + 26], [0, 0.85], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const solid = interpolate(f, [LOCK - 14, LOCK + 10], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const dots = 1 - interpolate(f, [LOCK - 4, LOCK + 22], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const ring = interpolate(f, [LOCK, LOCK + 34], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const flash = interpolate(f, [LOCK - 2, LOCK + 4, LOCK + 26], [0, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   const title = "Дякую за увагу!";
-  const sweep = interpolate(f, [128, 175], [-30, 130], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const credit = s(0, 118);
+  const sweep = interpolate(f, [158, 205], [-30, 130], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const credit = s(0, 148);
 
   return (
-    <AbsoluteFill style={{ background: `radial-gradient(ellipse at 50% 38%, #221c3a 0%, ${C.bg} 60%)`, overflow: "hidden" }}>
-      {/* slow drifting star field */}
-      <svg width={1920} height={1080} style={{ position: "absolute", inset: 0 }}>
-        {Array.from({ length: 90 }, (_, i) => {
-          const x = rnd(i * 23) * 1920;
-          const y = (rnd(i * 29) * 1080 - f * (0.2 + rnd(i * 31) * 0.5) + 1080) % 1080;
-          const tw = 0.25 + 0.35 * Math.abs(Math.sin(f / 14 + i));
-          return <circle key={i} cx={x} cy={y} r={1 + rnd(i * 37) * 1.4} fill="#c4b5fd" opacity={tw * s(0, 0)} />;
-        })}
-      </svg>
-
-      {/* shockwave */}
-      <div
+    <AbsoluteFill style={{ background: C.bg, overflow: "hidden" }}>
+      <AbsoluteFill style={{ background: `radial-gradient(ellipse at 50% 38%, #221c3a 0%, ${C.bg} 60%)`, opacity: s(0, 20) }} />
+      {/* the summary slide, frozen on its last frame, dissolving left → right */}
+      <AbsoluteFill
         style={{
-          position: "absolute",
-          left: LOGO_CX - 700 * ring,
-          top: LOGO_CY - 700 * ring,
-          width: 1400 * ring,
-          height: 1400 * ring,
-          borderRadius: "50%",
-          border: `${4 + 10 * (1 - ring)}px solid rgba(169,148,255,${0.55 * (1 - ring)})`,
-          boxShadow: `0 0 60px rgba(169,148,255,${0.4 * (1 - ring)})`,
-        }}
-      />
-
-      {/* solid logo with glow */}
-      <svg
-        width={17 * SCALE}
-        height={12 * SCALE}
-        viewBox="0 0 17 12"
-        style={{
-          position: "absolute",
-          left: LX,
-          top: LY,
-          opacity: solid,
-          filter: `drop-shadow(0 0 ${30 + 50 * flash}px rgba(192,96,182,${0.35 + 0.5 * flash}))`,
+          maskImage: `linear-gradient(90deg, transparent ${sweepPct(f) - 6}%, black ${sweepPct(f) + 6}%)`,
+          WebkitMaskImage: `linear-gradient(90deg, transparent ${sweepPct(f) - 6}%, black ${sweepPct(f) + 6}%)`,
+          display: f > SWEEP_TO + 2 ? "none" : undefined,
         }}
       >
-        {LOGO.map((p, i) => (
-          <polygon key={i} points={p.pts.map((q) => q.join(",")).join(" ")} fill={p.color} />
-        ))}
-      </svg>
+        <Freeze frame={SUMMARY_END}>
+          <StepProvider value={startsOf(SUMMARY.steps)}>
+            <SUMMARY.C />
+          </StepProvider>
+        </Freeze>
+      </AbsoluteFill>
+      {/* solid logo; the glow layer has a fixed blur and only its opacity animates */}
+      <LogoSvg style={{ opacity: solid * (0.55 + 0.45 * flash), filter: "drop-shadow(0 0 46px rgba(192,96,182,0.85))", willChange: "opacity" }} />
+      <LogoSvg style={{ opacity: solid, willChange: "opacity" }} />
 
-      {/* particles */}
-      <svg width={1920} height={1080} style={{ position: "absolute", inset: 0, opacity: dots }}>
-        <defs>
-          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="3" result="b" />
-            <feMerge>
-              <feMergeNode in="b" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-        <g filter="url(#glow)">
-          {PARTICLES.map((p, i) => {
-            const pr = Math.min(1, Math.max(0, (f - p.delay) / (LOCK - p.delay)));
-            const e = 1 - Math.pow(1 - pr, 3);
-            // spiral in: rotate the start offset around the target as it closes in
-            const a = (1 - e) * p.spin * Math.PI;
-            const dx = (p.sx - p.tx) * (1 - e);
-            const dy = (p.sy - p.ty) * (1 - e);
-            const x = p.tx + dx * Math.cos(a) - dy * Math.sin(a);
-            const y = p.ty + dx * Math.sin(a) + dy * Math.cos(a);
-            return <circle key={i} cx={x} cy={y} r={p.r * (1 + (1 - e) * 0.8)} fill={p.color} opacity={pr > 0 ? 0.35 + 0.65 * e : 0} />;
-          })}
-        </g>
-      </svg>
-
-      {/* white flash on lock */}
-      <AbsoluteFill style={{ background: "#ffffff", opacity: flash * 0.08, pointerEvents: "none" }} />
+      {/* stars, shockwave and particles: one canvas, drawn per frame */}
+      <FxCanvas f={f} dots={dots} ring={ring} intro={s(0, 30)} />
 
       {/* title */}
       <div
@@ -167,10 +234,11 @@ const Outro: React.FC = () => {
           fontSize: 124,
           color: C.text,
           letterSpacing: 1,
+          textShadow: "0 0 24px rgba(169,148,255,0.35)",
         }}
       >
         {title.split("").map((ch, i) => {
-          const p = s(0, 78 + i * 2.2, POP);
+          const p = s(0, 108 + i * 2.2, POP);
           return (
             <span
               key={i}
@@ -179,7 +247,6 @@ const Outro: React.FC = () => {
                 whiteSpace: "pre",
                 opacity: Math.min(1, p),
                 transform: `translateY(${(1 - p) * 70}px) scale(${0.6 + 0.4 * p})`,
-                textShadow: `0 0 ${24 * p}px rgba(169,148,255,0.35)`,
               }}
             >
               {ch}
@@ -230,4 +297,4 @@ const Outro: React.FC = () => {
   );
 };
 
-export const outroSlide: SlideDef = { id: "thanks", title: "Дякую за увагу", steps: [180], C: Outro };
+export const outroSlide: SlideDef = { id: "thanks", title: "Дякую за увагу", steps: [212], C: Outro };
