@@ -130,7 +130,7 @@ export default function App() {
 
   return (
     <div
-      style={{ width: "100vw", height: "100vh", background: C.bg, position: "relative", cursor: "none" }}
+      style={{ width: "100vw", height: "100vh", background: C.bg, position: "relative" }}
       onClick={next}
       onContextMenu={(e) => {
         e.preventDefault();
