@@ -10,14 +10,6 @@ export const INK = [
   { c: "#ffffff", name: "білий" },
 ];
 
-export const TOOL_LABEL: Record<Tool, string> = {
-  none: "",
-  laser: "Лазерна указка",
-  pen: "Перо",
-  highlighter: "Маркер",
-  spotlight: "Прожектор",
-};
-
 type Pt = { x: number; y: number };
 type Stroke = { pts: Pt[]; color: string; hl: boolean; endAt?: number };
 

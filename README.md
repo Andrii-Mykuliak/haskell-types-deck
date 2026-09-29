@@ -31,6 +31,8 @@ npm run dev        # open the printed URL, press f for fullscreen
 | b / w | black / white screen |
 | Esc | turn off every tool and screen |
 
+The same tools are on the toolbar at the bottom of the screen (hover a button to see its shortcut).
+
 The URL hash (`#12`) holds the current slide, so a reload returns to it.
 
 ## Editing

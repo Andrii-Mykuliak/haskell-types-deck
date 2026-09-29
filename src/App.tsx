@@ -1,6 +1,7 @@
 import { Player, PlayerRef } from "@remotion/player";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { INK, PresenterLayer, Screen, Tool, TOOL_LABEL } from "./deck/Presenter";
+import { PresenterLayer, Screen, Tool } from "./deck/Presenter";
+import { Toolbar } from "./deck/Toolbar";
 import { SlideRoot } from "./deck/SlideRoot";
 import { stopsOf, totalOf } from "./deck/steps";
 import { C, F, FPS, H, W } from "./deck/theme";
@@ -197,32 +198,15 @@ export default function App() {
         }}
       />
       <PresenterLayer tool={tool} ink={ink} screen={screen} clearKey={`${pos.slide}-${clearNonce}`} />
-      {tool !== "none" && (
-        <div
-          style={{
-            position: "absolute",
-            left: 20,
-            bottom: 14,
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            fontFamily: F.mono,
-            fontSize: 14,
-            color: C.dim,
-            background: "rgba(0,0,0,0.35)",
-            padding: "6px 10px",
-            borderRadius: 6,
-            pointerEvents: "none",
-          }}
-        >
-          {(tool === "pen" || tool === "highlighter") && (
-            <span style={{ width: 12, height: 12, borderRadius: 6, background: INK[ink].c, display: "inline-block" }} />
-          )}
-          {TOOL_LABEL[tool]}
-          {(tool === "pen" || tool === "highlighter") && ` · ${INK[ink].name}`}
-          {" · Esc — вимкнути"}
-        </div>
-      )}
+      <Toolbar
+        tool={tool}
+        setTool={setTool}
+        ink={ink}
+        setInk={setInk}
+        screen={screen}
+        setScreen={setScreen}
+        onClear={() => setClearNonce((n) => n + 1)}
+      />
       {(hud || jump) && (
         <div
           style={{
