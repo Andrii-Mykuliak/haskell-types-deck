@@ -22,6 +22,14 @@ npm run dev        # open the printed URL, press f for fullscreen
 | f | fullscreen |
 | h | slide / step counter |
 | ? | help |
+| l | laser pointer (red dot with a fading trail) |
+| s | spotlight: dims everything except a circle around the cursor (mouse wheel changes its size) |
+| d | pen: clicks draw instead of advancing; move with the keyboard or a clicker |
+| m | highlighter: a thick stroke that fades after ~2 s |
+| 1–4 | ink colour while the pen or highlighter is on (red, yellow, mint, white) |
+| c | clear drawings (they also clear when the slide changes) |
+| b / w | black / white screen |
+| Esc | turn off every tool and screen |
 
 The URL hash (`#12`) holds the current slide, so a reload returns to it.
 

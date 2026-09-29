@@ -1,5 +1,6 @@
 import { Player, PlayerRef } from "@remotion/player";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { INK, PresenterLayer, Screen, Tool, TOOL_LABEL } from "./deck/Presenter";
 import { SlideRoot } from "./deck/SlideRoot";
 import { stopsOf, totalOf } from "./deck/steps";
 import { C, F, FPS, H, W } from "./deck/theme";
@@ -21,6 +22,10 @@ export default function App() {
   const [hud, setHud] = useState(false);
   const [help, setHelp] = useState(false);
   const [jump, setJump] = useState("");
+  const [tool, setTool] = useState<Tool>("none");
+  const [ink, setInk] = useState(0);
+  const [screen, setScreen] = useState<Screen>("none");
+  const [clearNonce, setClearNonce] = useState(0);
 
   const def = SLIDES[pos.slide];
   const stops = stopsOf(def.steps);
@@ -96,6 +101,19 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const k = e.key;
+      const drawing = tool === "pen" || tool === "highlighter";
+      if (drawing && /^[1-4]$/.test(k)) {
+        setInk(parseInt(k, 10) - 1);
+        return;
+      }
+      const toggleTool = (t: Tool) => setTool((cur) => (cur === t ? "none" : t));
+      if (k === "l") return toggleTool("laser");
+      if (k === "d") return toggleTool("pen");
+      if (k === "m") return toggleTool("highlighter");
+      if (k === "s") return toggleTool("spotlight");
+      if (k === "b") return setScreen((cur) => (cur === "black" ? "none" : "black"));
+      if (k === "w") return setScreen((cur) => (cur === "white" ? "none" : "white"));
+      if (k === "c") return setClearNonce((n) => n + 1);
       if (/^[0-9]$/.test(k)) {
         setJump((j) => (j + k).slice(-3));
         return;
@@ -120,17 +138,27 @@ export default function App() {
         else document.documentElement.requestFullscreen();
       } else if (k === "h") setHud((v) => !v);
       else if (k === "?") setHelp((v) => !v);
-      else if (k === "Escape") setHelp(false);
+      else if (k === "Escape") {
+        setHelp(false);
+        setTool("none");
+        setScreen("none");
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [next, prev, goto, jump]);
+  }, [next, prev, goto, jump, tool]);
 
   const progress = (pos.slide + (pos.step + 1) / def.steps.length) / SLIDES.length;
 
   return (
     <div
-      style={{ width: "100vw", height: "100vh", background: C.bg, position: "relative" }}
+      style={{
+        width: "100vw",
+        height: "100vh",
+        background: C.bg,
+        position: "relative",
+        cursor: tool === "laser" || tool === "spotlight" ? "none" : undefined,
+      }}
       onClick={next}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -168,6 +196,33 @@ export default function App() {
           transition: "width 300ms ease",
         }}
       />
+      <PresenterLayer tool={tool} ink={ink} screen={screen} clearKey={`${pos.slide}-${clearNonce}`} />
+      {tool !== "none" && (
+        <div
+          style={{
+            position: "absolute",
+            left: 20,
+            bottom: 14,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            fontFamily: F.mono,
+            fontSize: 14,
+            color: C.dim,
+            background: "rgba(0,0,0,0.35)",
+            padding: "6px 10px",
+            borderRadius: 6,
+            pointerEvents: "none",
+          }}
+        >
+          {(tool === "pen" || tool === "highlighter") && (
+            <span style={{ width: 12, height: 12, borderRadius: 6, background: INK[ink].c, display: "inline-block" }} />
+          )}
+          {TOOL_LABEL[tool]}
+          {(tool === "pen" || tool === "highlighter") && ` · ${INK[ink].name}`}
+          {" · Esc — вимкнути"}
+        </div>
+      )}
       {(hud || jump) && (
         <div
           style={{
@@ -206,6 +261,12 @@ export default function App() {
             <b>r</b> — повторити крок · <b>f</b> — повний екран · <b>h</b> — лічильник
             <br />
             <b>Home / End</b> — перший / останній слайд
+            <hr style={{ border: 0, borderTop: `1px solid ${C.line}`, margin: "12px 0" }} />
+            <b>l</b> — лазерна указка · <b>s</b> — прожектор (коліщатко — розмір)
+            <br />
+            <b>d</b> — перо · <b>m</b> — маркер, що зникає · <b>1–4</b> — колір · <b>c</b> — стерти
+            <br />
+            <b>b</b> — чорний екран · <b>w</b> — білий екран · <b>Esc</b> — вимкнути все
           </div>
         </div>
       )}
