@@ -7,6 +7,7 @@ import { paramTypesSlide, s4Slides } from "./s4-adt";
 import { s5Slides } from "./s5-poly";
 import { s6Slides } from "./s6-patterns";
 import { s7Slides } from "./s7-inference";
+import { outroSlide } from "./outro";
 
 export const SLIDES: SlideDef[] = [
   ...introSlides,
@@ -24,4 +25,5 @@ export const SLIDES: SlideDef[] = [
   ...s6Slides,
   agendaSlide(6),
   ...s7Slides,
+  outroSlide,
 ];

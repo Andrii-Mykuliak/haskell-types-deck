@@ -11,7 +11,8 @@ const comps = await getCompositions(serveUrl, { inputProps: {} });
 for (const [i, c] of comps.entries()) {
   const n = i + 1;
   if (only.length && !only.includes(String(n))) continue;
-  const stops = c.defaultProps.stops;
+  // FRAMES=10,20 overrides which frames are rendered
+  const stops = process.env.FRAMES ? process.env.FRAMES.split(",").map(Number) : c.defaultProps.stops;
   for (const [k, f] of stops.entries()) {
     const comp = await selectComposition({ serveUrl, id: c.id, inputProps: c.defaultProps });
     const output = path.join(outDir, `${String(n).padStart(2, "0")}-${k + 1}.png`);
