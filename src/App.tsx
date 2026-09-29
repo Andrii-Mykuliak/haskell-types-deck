@@ -1,0 +1,214 @@
+import { Player, PlayerRef } from "@remotion/player";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { SlideRoot } from "./deck/SlideRoot";
+import { stopsOf, totalOf } from "./deck/steps";
+import { C, F, FPS, H, W } from "./deck/theme";
+import { SLIDES } from "./slides";
+
+type Pos = { slide: number; step: number; mode: "play" | "jump" };
+
+const lastStep = (slide: number) => SLIDES[slide].steps.length - 1;
+
+const initialSlide = () => {
+  const n = parseInt(window.location.hash.slice(1), 10);
+  return Number.isFinite(n) ? Math.min(Math.max(n - 1, 0), SLIDES.length - 1) : 0;
+};
+
+export default function App() {
+  const ref = useRef<PlayerRef>(null);
+  const target = useRef<number | null>(null);
+  const [pos, setPos] = useState<Pos>({ slide: initialSlide(), step: 0, mode: "play" });
+  const [hud, setHud] = useState(false);
+  const [help, setHelp] = useState(false);
+  const [jump, setJump] = useState("");
+
+  const def = SLIDES[pos.slide];
+  const stops = stopsOf(def.steps);
+
+  // Drive the player to the current step's stop frame.
+  useEffect(() => {
+    const p = ref.current;
+    if (!p) return;
+    const stop = stops[pos.step];
+    const onFrame = (e: { detail: { frame: number } }) => {
+      if (target.current !== null && e.detail.frame >= target.current) {
+        const tgt = target.current;
+        target.current = null;
+        p.pause();
+        p.seekTo(tgt);
+      }
+    };
+    p.addEventListener("frameupdate", onFrame);
+    if (pos.mode === "jump") {
+      target.current = null;
+      p.pause();
+      p.seekTo(stop);
+    } else {
+      const from = pos.step === 0 ? 0 : stops[pos.step - 1];
+      if (p.getCurrentFrame() !== from) p.seekTo(from);
+      target.current = stop;
+      p.play();
+    }
+    // A freshly mounted player may ignore the first play(); retry once it is ready.
+    const retry = window.setTimeout(() => {
+      if (target.current !== null && !p.isPlaying()) p.play();
+    }, 80);
+    window.history.replaceState(null, "", `#${pos.slide + 1}`);
+    return () => {
+      window.clearTimeout(retry);
+      p.removeEventListener("frameupdate", onFrame);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pos]);
+
+  const next = useCallback(() => {
+    const p = ref.current;
+    // A step still animating: finish it instantly first.
+    if (p && target.current !== null) {
+      const tgt = target.current;
+      target.current = null;
+      p.pause();
+      p.seekTo(tgt);
+      return;
+    }
+    setPos((cur) => {
+      if (cur.step < lastStep(cur.slide)) return { slide: cur.slide, step: cur.step + 1, mode: "play" };
+      if (cur.slide < SLIDES.length - 1) return { slide: cur.slide + 1, step: 0, mode: "play" };
+      return cur;
+    });
+  }, []);
+
+  const prev = useCallback(() => {
+    target.current = null;
+    setPos((cur) => {
+      if (cur.step > 0) return { slide: cur.slide, step: cur.step - 1, mode: "jump" };
+      if (cur.slide > 0) return { slide: cur.slide - 1, step: lastStep(cur.slide - 1), mode: "jump" };
+      return { ...cur, mode: "jump" };
+    });
+  }, []);
+
+  const goto = useCallback((slide: number) => {
+    target.current = null;
+    setPos({ slide: Math.min(Math.max(slide, 0), SLIDES.length - 1), step: 0, mode: "play" });
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const k = e.key;
+      if (/^[0-9]$/.test(k)) {
+        setJump((j) => (j + k).slice(-3));
+        return;
+      }
+      if (k === "Enter" && jump) {
+        goto(parseInt(jump, 10) - 1);
+        setJump("");
+        return;
+      }
+      setJump("");
+      if (["ArrowRight", "ArrowDown", " ", "PageDown", "Enter", "n"].includes(k)) {
+        e.preventDefault();
+        next();
+      } else if (["ArrowLeft", "ArrowUp", "PageUp", "Backspace", "p"].includes(k)) {
+        e.preventDefault();
+        prev();
+      } else if (k === "Home") goto(0);
+      else if (k === "End") goto(SLIDES.length - 1);
+      else if (k === "r") setPos((cur) => ({ ...cur, mode: "play" }));
+      else if (k === "f") {
+        if (document.fullscreenElement) document.exitFullscreen();
+        else document.documentElement.requestFullscreen();
+      } else if (k === "h") setHud((v) => !v);
+      else if (k === "?") setHelp((v) => !v);
+      else if (k === "Escape") setHelp(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [next, prev, goto, jump]);
+
+  const progress = (pos.slide + (pos.step + 1) / def.steps.length) / SLIDES.length;
+
+  return (
+    <div
+      style={{ width: "100vw", height: "100vh", background: C.bg, position: "relative", cursor: "none" }}
+      onClick={next}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        prev();
+      }}
+    >
+      <Player
+        key={pos.slide}
+        ref={ref}
+        component={SlideRoot}
+        inputProps={{ index: pos.slide }}
+        durationInFrames={totalOf(def.steps)}
+        fps={FPS}
+        compositionWidth={W}
+        compositionHeight={H}
+        style={{ width: "100%", height: "100%" }}
+        clickToPlay={false}
+        doubleClickToFullscreen={false}
+        spaceKeyToPlayOrPause={false}
+        loop={false}
+        initialFrame={pos.mode === "jump" ? stops[pos.step] : 0}
+        autoPlay={pos.mode === "play" && pos.step === 0}
+        initiallyMuted
+        acknowledgeRemotionLicense
+      />
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          bottom: 0,
+          height: 3,
+          width: `${progress * 100}%`,
+          background: `linear-gradient(90deg, ${C.blue}, ${C.mint})`,
+          opacity: 0.55,
+          transition: "width 300ms ease",
+        }}
+      />
+      {(hud || jump) && (
+        <div
+          style={{
+            position: "absolute",
+            right: 20,
+            bottom: 14,
+            fontFamily: F.mono,
+            fontSize: 14,
+            color: C.dim,
+            background: "rgba(0,0,0,0.35)",
+            padding: "6px 10px",
+            borderRadius: 6,
+          }}
+        >
+          {jump ? `→ ${jump}` : `${pos.slide + 1} / ${SLIDES.length} · крок ${pos.step + 1}/${def.steps.length} · ${def.title}`}
+        </div>
+      )}
+      {help && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(10,12,20,0.75)",
+          }}
+        >
+          <div style={{ fontFamily: F.body, color: C.text, fontSize: 18, lineHeight: 1.9, background: C.panel, padding: "28px 40px", borderRadius: 14 }}>
+            <b>→ / Space / PgDn / click</b> — наступний крок
+            <br />
+            <b>← / PgUp / right-click</b> — назад
+            <br />
+            <b>число + Enter</b> — перейти до слайда
+            <br />
+            <b>r</b> — повторити крок · <b>f</b> — повний екран · <b>h</b> — лічильник
+            <br />
+            <b>Home / End</b> — перший / останній слайд
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
