@@ -2,6 +2,7 @@ import { Player, PlayerRef } from "@remotion/player";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PresenterLayer, Screen, Tool } from "./deck/Presenter";
 import { Toolbar } from "./deck/Toolbar";
+import { Scrubber } from "./deck/Scrubber";
 import { SlideRoot } from "./deck/SlideRoot";
 import { stopsOf, totalOf } from "./deck/steps";
 import { C, F, FPS, H, W } from "./deck/theme";
@@ -185,18 +186,7 @@ export default function App() {
         initiallyMuted
         acknowledgeRemotionLicense
       />
-      <div
-        style={{
-          position: "absolute",
-          left: 0,
-          bottom: 0,
-          height: 3,
-          width: `${progress * 100}%`,
-          background: `linear-gradient(90deg, ${C.blue}, ${C.mint})`,
-          opacity: 0.55,
-          transition: "width 300ms ease",
-        }}
-      />
+      <Scrubber progress={progress} current={pos.slide} onSeek={goto} />
       <PresenterLayer tool={tool} ink={ink} screen={screen} clearKey={`${pos.slide}-${clearNonce}`} />
       <Toolbar
         tool={tool}
