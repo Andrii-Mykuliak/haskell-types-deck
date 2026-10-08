@@ -198,7 +198,7 @@ const EpigraphSlide: React.FC = () => {
         }}
       />
       <At x={110} y={770} w={1700} step={1} delay={6} size={44} weight={600} color={C.text}>
-        Добре типізовані програми не можуть «піти не так».
+        Добре типізовані програми не можуть працювати неправильно.
       </At>
       <At x={110} y={850} step={1} delay={24} size={34} weight={400} color={C.dim} font={F.mono}>
         Robin Milner
