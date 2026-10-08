@@ -31,6 +31,7 @@ export const AuthorBlock: React.FC<{ delay?: number }> = ({ delay = 60 }) => {
         <div style={{ fontSize: 26, color: C.dim }}>Підготував</div>
         <div style={{ marginTop: 10, fontSize: 32, fontWeight: 600 }}>ас. каф. ПЗ</div>
         <div style={{ marginTop: 4, fontSize: 40, fontWeight: 800 }}>Микуляк Андрій</div>
+        <div style={{ marginTop: 8, fontSize: 24, color: C.dim }}>2026</div>
       </div>
     </div>
   );
