@@ -3,6 +3,7 @@ import { interpolate } from "remotion";
 import { C, F } from "../deck/theme";
 import { mix, POP, SlideDef, useSteps } from "../deck/steps";
 import { At, HaskellLogo, Slide } from "../deck/ui";
+import { epigraphSlide } from "./epigraph";
 
 const TitleSlide: React.FC = () => {
   const { s, t } = useSteps();
@@ -136,6 +137,7 @@ const Agenda: React.FC<{ active?: number }> = ({ active }) => {
 
 export const introSlides: SlideDef[] = [
   { id: "title", title: "Титул", steps: [90], C: TitleSlide },
+  epigraphSlide,
   { id: "agenda", title: "План", steps: [60], C: () => <Agenda /> },
 ];
 
