@@ -215,7 +215,6 @@ const Outro: React.FC = () => {
         </Freeze>
       </AbsoluteFill>
       {/* solid logo; the glow layer has a fixed blur and only its opacity animates */}
-      <LogoSvg style={{ opacity: solid * (0.55 + 0.45 * flash), filter: "drop-shadow(0 0 46px rgba(192,96,182,0.85))", willChange: "opacity" }} />
       <LogoSvg style={{ opacity: solid, willChange: "opacity" }} />
 
       {/* stars, shockwave and particles: one canvas, drawn per frame */}

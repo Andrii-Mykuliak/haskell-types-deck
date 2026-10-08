@@ -1,5 +1,4 @@
 import React from "react";
-import { interpolate } from "remotion";
 import { C, F } from "../deck/theme";
 import { mix, POP, SlideDef, useSteps } from "../deck/steps";
 import { At, HaskellLogo, Slide } from "../deck/ui";
@@ -7,7 +6,7 @@ import { AuthorBlock } from "../deck/Author";
 import { epigraphSlide } from "./epigraph";
 
 const TitleSlide: React.FC = () => {
-  const { s, t } = useSteps();
+  const { s } = useSteps();
   const line1 = "Система типів";
   const line2 = "Haskell";
   const letters = (str: string, base: number) =>
@@ -19,10 +18,9 @@ const TitleSlide: React.FC = () => {
         </span>
       );
     });
-  const glow = interpolate(t(0, 40), [0, 40], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   return (
     <Slide>
-      <div style={{ position: "absolute", right: 60, top: 70, filter: `drop-shadow(0 0 ${40 * glow}px rgba(143,78,139,0.35))` }}>
+      <div style={{ position: "absolute", right: 60, top: 70 }}>
         <HaskellLogo size={680} p1={s(0, 4, POP)} p2={s(0, 12, POP)} p3={s(0, 22, POP)} />
       </div>
       <At x={116} y={200} step={0} delay={8} size={60} weight={800} color={C.pink}>
