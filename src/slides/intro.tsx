@@ -22,17 +22,6 @@ const TitleSlide: React.FC = () => {
   const glow = interpolate(t(0, 40), [0, 40], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   return (
     <Slide>
-      <div
-        style={{
-          position: "absolute",
-          right: 0,
-          top: 14,
-          width: 760,
-          height: 540,
-          background: "#141821",
-          opacity: s(0, 0),
-        }}
-      />
       <div style={{ position: "absolute", right: 60, top: 70, filter: `drop-shadow(0 0 ${40 * glow}px rgba(143,78,139,0.35))` }}>
         <HaskellLogo size={680} p1={s(0, 4, POP)} p2={s(0, 12, POP)} p3={s(0, 22, POP)} />
       </div>
