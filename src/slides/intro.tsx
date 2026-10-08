@@ -3,6 +3,7 @@ import { interpolate } from "remotion";
 import { C, F } from "../deck/theme";
 import { mix, POP, SlideDef, useSteps } from "../deck/steps";
 import { At, HaskellLogo, Slide } from "../deck/ui";
+import { AuthorBlock } from "../deck/Author";
 import { epigraphSlide } from "./epigraph";
 
 const TitleSlide: React.FC = () => {
@@ -56,6 +57,7 @@ const TitleSlide: React.FC = () => {
       <At x={116} y={770} step={0} delay={56} size={36} weight={400} color={C.dim} font={F.mono} style={{ fontVariantLigatures: "none" }}>
         {"typeOf :: Expression -> Type"}
       </At>
+      <AuthorBlock />
     </Slide>
   );
 };
@@ -136,7 +138,7 @@ const Agenda: React.FC<{ active?: number }> = ({ active }) => {
 };
 
 export const introSlides: SlideDef[] = [
-  { id: "title", title: "Титул", steps: [90], C: TitleSlide },
+  { id: "title", title: "Титул", steps: [110], C: TitleSlide },
   epigraphSlide,
   { id: "agenda", title: "План", steps: [60], C: () => <Agenda /> },
 ];
