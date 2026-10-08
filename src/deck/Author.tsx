@@ -24,8 +24,8 @@ export const AuthorBlock: React.FC<{ delay?: number }> = ({ delay = 60 }) => {
   const text = s(0, delay + 12);
   return (
     <div style={{ position: "absolute", left: 1236, top: 712, display: "flex", alignItems: "center", gap: 38 }}>
-      <div style={{ opacity: clamp01(logo), transform: `scale(${0.8 + 0.2 * logo})`, filter: "drop-shadow(0 0 18px rgba(196,181,253,0.25))" }}>
-        <LpnuLogo height={196} />
+      <div style={{ opacity: clamp01(logo), transform: `scale(${0.8 + 0.2 * logo})`, filter: "drop-shadow(0 0 14px rgba(164,151,214,0.12))" }}>
+        <LpnuLogo height={196} color="#a497d6" />
       </div>
       <div style={{ fontFamily: F.body, color: C.text, opacity: clamp01(text), transform: `translateX(${(1 - text) * 24}px)` }}>
         <div style={{ fontSize: 26, color: C.dim }}>Підготував</div>
