@@ -2,6 +2,7 @@ import { Player, PlayerRef } from "@remotion/player";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PresenterLayer, Screen, Tool } from "./deck/Presenter";
 import { Toolbar } from "./deck/Toolbar";
+import { FullscreenButton, toggleFullscreen } from "./deck/FullscreenButton";
 import { Scrubber } from "./deck/Scrubber";
 import { SlideRoot } from "./deck/SlideRoot";
 import { stopsOf, totalOf } from "./deck/steps";
@@ -135,10 +136,7 @@ export default function App() {
       } else if (k === "Home") goto(0);
       else if (k === "End") goto(SLIDES.length - 1);
       else if (k === "r") setPos((cur) => ({ ...cur, mode: "play" }));
-      else if (k === "f") {
-        if (document.fullscreenElement) document.exitFullscreen();
-        else document.documentElement.requestFullscreen();
-      } else if (k === "h") setHud((v) => !v);
+      else if (k === "f") toggleFullscreen(); else if (k === "h") setHud((v) => !v);
       else if (k === "?") setHelp((v) => !v);
       else if (k === "Escape") {
         setHelp(false);
@@ -197,6 +195,7 @@ export default function App() {
         setScreen={setScreen}
         onClear={() => setClearNonce((n) => n + 1)}
       />
+      <FullscreenButton />
       {(hud || jump) && (
         <div
           style={{
